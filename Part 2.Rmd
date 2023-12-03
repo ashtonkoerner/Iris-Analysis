@@ -1,0 +1,89 @@
+---
+title: "Part 2"
+author: "Ashton Koerner"
+date: "2023-11-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(MASS)
+```
+
+## Part 2
+### 3.1
+```{r}
+# reading data and changing categorical entries to numeric entries
+data = read.csv('iris_data.data')
+colnames(data) = c("sepal.length","sepal.width","petal.length", "petal.width","class")
+data$Numeric_class = as.numeric(factor(data$class, levels = unique(data$class)))
+data = data[,-5]
+names(data)[names(data) == 'Numeric_class'] <- 'species'
+# 1 = Iris-setosa
+# 2 = Iris-versicolor
+# 3 = Iris-virginica
+
+
+# Orthonormal basis for subspace U using PCA
+U = prcomp(data)$rotation
+
+# Function computing the novelty of an instance x with respect to subspace U
+novelty = function(x, U) {
+  projection = x %*% U
+  novelty = sqrt(sum((x - projection %*% t(U))^2))
+  return(novelty)
+}
+
+# Applying novelty function to each row of data
+novelties = apply(data, 1, function(x) novelty(x, U))
+
+plot(novelties, type = "l", xlab = "Instance",
+     ylab = "Novelty", main = "Novelty of Instances")
+summary(novelties)
+IQR = 2.809e-15 - 1.814e-15
+Upper = 2.809e-15 + 1.5*IQR
+Lower = 1.814e-15 - 1.5*IQR
+# Identifying instances that stand out
+outliers = which(novelties > Upper)
+outliers = which(novelties < Lower)
+cat("Instances that stand out:", outliers, "\n")
+```
+
+Outlier detection aims to find anomalies within a dataset, while novelty detection focuses on identifying instances that are novel or different from what the model has seen during training.
+
+No instances that stand out mean in this context that no one iris plant is more interesting than the rest.
+
+### 3.2 Classification
+```{r}
+# Fisher Discriminant Analysis
+iris_binary = subset(iris, Species %in% c("setosa", "versicolor"))
+iris_binary$Species = as.factor(iris_binary$Species)
+lda_model = lda(Species ~ Sepal.Length + Sepal.Width, data = iris)
+lda_model
+```
+
+The mean Sepal Length for setosa is 5.006, and the mean Sepal Width is 3.428.
+The mean Sepal Length for versicolor is 5.936, and the mean Sepal Width is 2.770.
+The mean Sepal Length for virginica  is 6.588, and the mean Sepal Width is 2.974.
+
+In LD1, Sepal.Length has a coefficient of approximately -2.14, and Sepal.Width has a coefficient of approximately 2.77. These coefficients indicate the weights assigned to the predictors in creating LD1 and LD2.
+The coefficients of linear discriminants (LD1 and LD2) indicate the importance of each predictor in separating the groups. Negative and positive coefficients contribute to the direction of separation.
+D1 captures approximately 96.28% of the total variance, while LD2 captures 3.72%.
+The proportion of trace indicates the importance of LD1 and LD2 in capturing the overall variability.
+
+Overall, the results suggest that LD1, which is a linear combination of Sepal Length and Sepal Width, is the primary factor responsible for the separation between the groups. 
+
+## Part 3
+```{r}
+iris_features <- iris[, 1:4]
+pca_result <- prcomp(iris_features, scale. = TRUE)
+pc1 <- pca_result$x[, 1]
+pc2 <- pca_result$x[, 2]
+plot(pc1, pc2, col = iris$Species, pch = 19, main = "PCA of Iris Data", xlab = "P", ylab = "PC2")
+legend("topright", legend = levels(iris$Species), col = 1:3, pch = 19, title = "Species")
+```
+
+Setosa species is clustered away from the other two species along PC1. Versicolor and virginica species show some overlap, indicating that these species share certain similarities in their measurements. 
+A general trend is that versicolor tends to have lower values along PC2, while virginica tends to have higher values.
